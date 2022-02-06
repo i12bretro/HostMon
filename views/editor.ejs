@@ -1,0 +1,209 @@
+<%- include('partials/header'); %>
+	<script>
+		logPage = 0;
+		var df = { hour:'2-digit', minute:'2-digit', second:'2-digit' };
+		$(function(){
+			<% if(host !== undefined){ %>
+				$('div.responseTime').text('<%= host.last_status.r %>' +' @ '+ new Date(<%= host.last_status.t %>*1000).toLocaleTimeString('en-us', df));
+				$('div.hostStatus').removeClass('hostNew hostUp hostDown').addClass('host<%= host.last_status.s %>').attr('title', '<%= host.last_status.s %>: <%= host.last_status.r %>');
+			<% } %>
+			const socket = io();
+			try{
+				socket.on('hostdata', function(data){
+					hostObject = JSON.parse(data);
+					$('div.responseTime').text(hostObject.r +' @ '+ new Date(hostObject.t*1000).toLocaleTimeString('en-us', df));
+					$('div.hostStatus').removeClass('hostNew hostUp hostDown').addClass('host'+ hostObject.s).attr('title', hostObject.s +': '+ hostObject.r);
+				});
+			} catch(e){
+
+			}
+			
+			<% if(host !== undefined){ %>
+				$('.tabContentContainer').on( 'scroll', function(e){
+					if($('.tabContentContainer').scrollTop() + $('.tabContentContainer').innerHeight() >= e.target.scrollHeight){
+						logPage++;
+						$.ajax({
+							url: '/actions.html?action=getHostLogs',
+							type: 'POST',
+							data: { host: <%= host.id %>, page: logPage },
+							success: function(logs){
+								logs.forEach((log) => {
+									$('#logs table tbody').append(`<tr class="${log.s}"><td>${log.s}</td><td align="center">${log.i}</td><td>${log.a}</td><td class="noWrap">${log.d}</td><td align="center">${new Date((log.t * 1000)).toLocaleString()}</td></tr>`);
+								});
+							}
+						});
+					}
+				});
+
+				$(document).on('click','a.getHostLogs',function(){
+					$.ajax({
+						url: '/actions.html?action=getHostLogs',
+						type: 'POST',
+						data: { host: <%= host.id %>, page: 0 },
+						success: function(logs){
+							$('#logs table tbody').empty();
+							logs.forEach((log) => {
+								$('#logs table tbody').append(`<tr class="${log.s}"><td>${log.s}</td><td align="center">${log.i}</td><td>${log.a}</td><td class="noWrap">${log.d}</td><td align="center">${new Date((log.t * 1000)).toLocaleString()}</td></tr>`);
+							});
+						}
+					});
+				});
+			<% } %>
+
+			$(document).on('change','#newIcon',function(e){
+				fileInput = this;
+				var formData = new FormData();
+				for (var i=0; i < fileInput.files.length; i++) {
+					var file = fileInput.files[i];
+					if (!file.type.match('image/png')) {
+						bubbleNotify('Only .png icons are allowed');
+					}
+					formData.append('file', file, file.name);
+				}
+						$.ajax({
+					url: '/upload.html?action=uploadIcon',
+					type: 'POST',
+					data: formData,
+					enctype: 'multipart/form-data',
+					contentType: false,
+					processData: false,
+					success: function(response) {
+						iconSelect = $('#icon');
+						iconSelect.html('<option value=""></option>');
+						response.forEach((icon, index) => {
+							if(icon !== null){
+								iconSelect.append(`<option value="${index}">${icon}</option>`);
+							}
+						});
+						iconSelect.find('option:last').prop('selected',true).trigger('change');
+					}
+				})
+			});
+
+			$(document).on('change','#icon',function(){
+				newIcon = $(this).find('option:selected');
+				if(newIcon.text() != '' && newIcon.val() != '__CREATE__'){
+					$('img.iconPreview').replaceWith(`<img class="iconPreview" src="/images/icons/${newIcon.text()}.png" alt="${newIcon.text()}" title="${newIcon.text()}" />`);
+				} else {
+
+				}
+			});
+		});
+		
+	</script>
+	<style>
+		body { height: 100vh; }
+		div.responseTime { text-align: right; position: absolute; top: 0; right: 40px;}
+		div.hostStatus { position: absolute; top: 0; right: 15px; }
+		div.bubbleNotifications { bottom: unset; top: 0; border-radius: 0 0 8px 8px; border-top: 0; }
+	</style>
+	<div class="bubbleNotifications"></div>
+	<div id="content">
+		<div class="liveHostData">
+			<% if(host !== undefined){ %>
+				<div class="responseTime"></div>
+				<div class="hostStatus host<%= host.last_status.s %>"></div>
+			<% } %>
+		</div>
+		<div id="tabWrapper">
+			<div class="tabs">
+				<ul class="tabList">
+					<% if(host !== undefined){ %>
+						<li class="tab"><a href="#actions" class="tab-link getHostLogs">Actions</a>
+						<li class="tab"><a href="#logs" class="tab-link getHostLogs">Host Logs</a>
+						<li class="tab"><a href="#ext" class="tab-link">Extended Details</a>
+					<% } %>
+					<li class="tab active"><a href="#main" class="tab-link">Host Details</a>
+				</ul>
+			</div>
+			<div class="tabContentContainer">
+				<% if(host !== undefined){ %>
+					<div class="tabContent" id="actions">
+						<input type="button" class="delete sendAction" value="Delete Host" title="Delete Host" data-confirmation="Are you sure you want to delete this host?<br />This action cannot be undone." data-action="deleteHost" data-host="<%= host.id %>" />
+						&nbsp; <input type="button" class="delete sendAction" value="Purge Host Logs" title="Purge Host Logs" data-confirmation="Are you sure you want to delete all logs for host?<br />This action cannot be undone." data-action="purgeHostLogs" data-host="<%= host.id %>" />
+					</div>
+					<div class="tabContent" id="logs">
+						<table border="0" cellpadding="2" cellspacing="2" width="100%">
+							<thead>
+								<tr><th width="50">Status</th><th width="40">ID</th><th width="150">Action</th><th>Details</th><th width="200">Log Date/Time</th></tr>
+							</thead>
+							<tbody>
+								<tr><td colspan="6" align="center"><img src="/images/loading.gif" alt="Loading...please wait" title="Loading...please wait" /></td></tr>
+							</tbody>
+						</table>
+					</div>
+					<div class="tabContent" id="ext">
+						<form id="editHostExtForm" autocomplete="off" action="/actions.html?action=updateHostExt" method="post">
+							<input type="hidden" name="host_id" value="<%= ((host !== undefined) ? host.id : '') %>" />
+							<div>
+								<label for="ext_ssh_port">SSH Port</label><input type="text" name="ssh_port" id="ext_ssh_port" value="<%= ((host.ext !== undefined && host.ext.ssh_port !== undefined) ? host.ext.ssh_port : '') %>" placeholder="Default: 22" />
+							</div>
+							<div>
+								<label for="ext_os">Operating System</label><input type="text" name="os" id="ext_os" value="<%= ((host.ext !== undefined && host.ext.os !== undefined) ? host.ext.os : '') %>" />
+							</div>
+							<div>
+								<label for="ext_ping_interval">Ping Interval</label><input type="number" name="ping_interval" id="ext_ping_interval" value="<%= ((host.ext !== undefined && host.ext.ping_interval !== undefined) ? host.ext.ping_interval : '') %>" placeholder="Default: 15" min="5" max="86399" />
+							</div>
+							<div>
+								<label for="ext_guacamole_url">Apache Guacamole URL</label><input type="text" name="guacamole_url" id="ext_guacamole_url" value="<%= ((host.ext !== undefined && host.ext.guacamole_url !== undefined) ? host.ext.guacamole_url : '') %>" />
+							</div>
+							<div>
+								<label for="ext_logging_y">Log Status Changes?</label>
+								<label for="ext_logging_y">Yes</label> <input type="radio" name="logging" id="ext_logging_y" value="Y" <%= ((host.ext === undefined || host.ext.logging === undefined || host.ext.logging === 'Y') ? ' CHECKED' : '') %> />
+								<label for="ext_logging_n">No</label> <input type="radio" name="logging" id="ext_logging_n" value="N" <%= ((host.ext !== undefined && host.ext.logging !== undefined && host.ext.logging === 'N') ? ' CHECKED' : '') %> />
+							</div>
+							<div class="right">
+								<input type="submit" value="Save Changes" title="Save Changes" />
+							</div>
+						</form>
+					</div>
+				<% } %>	
+				<div class="tabContent" id="main">
+				<form id="editHostForm" autocomplete="off" action="/actions.html?action=updateHost" method="post">
+					<input type="hidden" name="host_id" value="<%= ((host !== undefined) ? host.id : '') %>" />
+					<div>
+						<label for="host">Host Name</label><input type="text" name="host" id="host" value="<%= ((host !== undefined) ? host.host : '') %>" REQUIRED />
+					</div>
+					<div>
+						<label for="category">Category</label><%- buildSelect('category', ((host !== undefined) ? host.category : '')) %>
+					</div>
+					<div>
+						<label for="icon">Icon</label>
+						<div id="iconPreviewContainer">
+							<% if(host !== undefined){ %>
+								<img class="iconPreview" src="/images/icons/<%= host.icon_name %>.png" alt="<%= host.icon_name %>" title="<%= host.icon_name %>" />
+							<% } else { %>
+							<img class="iconPreview" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEYAAABGCAQAAADbJyoPAAAAQUlEQVR42u3OAQ0AAAwCoNu/9GvoBgnIFYmMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIzMZuYBf4oAR8RbylUAAAAASUVORK5CYII=" alt="" title="" />
+							<% } %>
+						</div>
+						<%- buildSelect('icon', ((host !== undefined) ? host.icon_id : '')) %>
+						<div class="uploadField">
+							<label class="uploadButton" for="newIcon">Upload File</label>
+							<input type="file" name="newIcon" id="newIcon" accept="image/png" MULTIPLE />
+						</div>
+					</div>
+					<div>
+						<label for="mac_address">MAC Address</label><input type="text" name="mac_address" id="mac_address" value="<%= ((host !== undefined) ? host.mac_address : '') %>" pattern="^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})|([0-9a-fA-F]{4}\.[0-9a-fA-F]{4}\.[0-9a-fA-F]{4})$" title="Expected format: 00:11:22:aa:bb:cc" />
+					</div>
+					<div>
+						<label for="tags">Tags</label><input type="text" name="tags" id="tags" value="<%= ((host !== undefined) ? host.tags : '') %>" />
+					</div>
+					<div>
+						<label for="notes">Notes</label><textarea name="notes" id="notes"><%= ((host !== undefined) ? host.notes : '')%></textarea>
+					</div>
+					<% if(host !== undefined){ %>
+						<div>
+							<label>Created Date/Time</label><span><%= new Date(host.created_date_time * 1000).toLocaleString() %></span>
+						</div>
+						<div>
+							<label>Modified Date/Time</label><span><%= new Date(host.modified_date_time * 1000).toLocaleString() %></span>
+						</div>
+					<% } %>
+					<div class="right">
+						<input type="submit" value="Save Changes" title="Save Changes" />
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+<%- include('partials/footer'); %>

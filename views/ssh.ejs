@@ -1,0 +1,53 @@
+<%- include('partials/header'); %>
+  <script defer src="/xterm.js"></script>
+  <script defer src="/xterm-addon-fit.js"></script>
+  <link rel="stylesheet" href="/xterm.css" />
+  <form id="sshAuthForm" autocomplete="off" onsubmit="startterm(); return false;">
+    <div>
+      <label for="sshUsername">Username:</label>
+      <input type="text" name="username" id="sshUsername" autofocus />
+    </div>
+    <div>
+      <label for="sshPassword">Password:</label>
+      <input type="password" name="password" id="sshPassword" />
+    </div>
+    <div class="right">
+      <input type="submit" value="Submit" title="Submit" />
+    </div>
+  </form>
+  <div id="terminal-container"></div>
+  <script>
+    function startterm(){
+      const terminal = new Terminal({
+        cursorBlink: true
+      });
+      const fitAddon = new FitAddon.FitAddon();
+      terminal.setOption('theme', { background: '<%= settings['Console BG Color'].value %>', foreground: '<%= settings['Console Text Color'].value %>' });
+      terminal.loadAddon(fitAddon);
+      terminal.open(document.getElementById('terminal-container'));
+      fitAddon.fit();
+
+      const socket = io().on('connect', function(){
+        socket.emit('sshauth', { username: $('form input[name=username]').val(), password: $('form input[name=password]').val() });
+      }).on('sshauth', function(data){
+        if(data == 'failed'){
+          bubbleNotify('Authentication failed, try again');
+        } else {
+          $('#sshAuthForm').hide('blind',700);
+          $('textarea').focus();
+        }
+      }).on('sshresponse', function(data){
+        terminal.write(data);
+      }).on('sshclosed', function(){
+        window.parent.$('.dialog-close input[type=button]').trigger('click');
+      });
+      terminal.onKey(function(ev) {
+        socket.emit('data', ev.key);
+      });
+
+      $(window).on('resize', function(){
+        fitAddon.fit();
+      });
+    }
+  </script>
+<%- include('partials/footer'); %>

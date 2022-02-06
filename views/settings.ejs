@@ -1,0 +1,101 @@
+<%- include('partials/header'); %>
+	<script>
+		logPage = 0;
+
+		$(function(){ 
+			$('.tabContentContainer').on('scroll', function(e){
+				if($('.tabContentContainer').scrollTop() + $('.tabContentContainer').innerHeight() >= e.target.scrollHeight){
+					logPage++;
+					$.ajax({
+						url: '/actions.html?action=getHostLogs',
+						type: 'POST',
+						data: { host: null, page: logPage },
+						success: function(logs){
+							logs.forEach((log) => {
+								$('#logs table tbody').append(`<tr class="${log.s}"><td>${log.s}</td><td align="center">${log.i}</td><td>${log.a}</td><td class="noWrap">${log.d}</td><td align="center">${new Date((log.t * 1000)).toLocaleString()}</td></tr>`);
+							});
+						}
+					});
+				}
+			});
+		});
+
+		$(document).on('click','a.getHostLogs',function(){
+			$.ajax({
+				url: '/actions.html?action=getHostLogs',
+				type: 'POST',
+				data: { host: null, page: 0 },
+				success: function(logs){
+					$('#logs table tbody').empty();
+					logs.forEach((log) => {
+						$('#logs table tbody').append(`<tr class="${log.s}"><td>${log.s}</td><td align="center">${log.i}</td><td>${log.a}</td><td class="noWrap">${log.d}</td><td align="center">${new Date((log.t * 1000)).toLocaleString()}</td></tr>`);
+					});
+				}
+			});
+		});
+		
+	</script>
+	<style>
+		body { height: 100vh; }
+		div.bubbleNotifications { bottom: unset; top: 0; border-radius: 0 0 8px 8px; border-top: 0; }
+	</style>
+	<div class="bubbleNotifications"></div>
+	<div id="content">
+		<div id="tabWrapper">
+			<div class="tabs">
+				<ul class="tabList">
+					<li class="tab"><a href="#about" class="tab-link">About</a>
+					<li class="tab"><a href="#logs" class="tab-link getHostLogs">Host Logs</a>
+					<li class="tab"><a href="#actions" class="tab-link">Actions</a>
+					<li class="tab active"><a href="#main" class="tab-link">Global Settings</a>
+				</ul>
+			</div>
+			<div class="tabContentContainer">
+				<div class="tabContent" id="about">
+					<h3>About</h3>
+					<%- `${_APPLICATION.name} v${_APPLICATION.version} ${_APPLICATION.copyright}` %><br />
+					<% _APPLICATION['links'].forEach((link) => { %>
+            <%- `<a href="${link.URL}" target="_blank">${link.name}</a>` %>
+          <% }); %>
+					<br /><br />
+					<h3>Host Details</h3>
+					<%- `Hostname: ${hostDetails.hostname}<br />OS: ${hostDetails.os}<br />CPU: ${hostDetails.cpu.cores} @ ${hostDetails.cpu.model}<br />Memory: ${hostDetails.memory.free}MiB / ${hostDetails.memory.total}MiB (${hostDetails.memory.percentage}%)<br />Uptime: ${hostDetails.uptime}`	%>
+				</div>
+				<div class="tabContent" id="actions">
+					<input type="button" class="delete sendAction" value="Purge All Logs" title="Purge All Logs" data-confirmation="Are you sure you want to delete all logs?<br />This action cannot be undone." data-action="purgeLogs" data-host="" />
+					&nbsp; <input type="button" class="delete sendAction" value="Reset to Defaults" title="Reset to Defaults" data-confirmation="Are you sure you want to reset global settings to their default values?<br />This action cannot be undone." data-action="resetToDefault" data-host="" />
+				</div>
+				<div class="tabContent" id="logs">
+					<table border="0" cellpadding="2" cellspacing="2" width="100%">
+						<thead>
+							<tr><th width="50">Status</th><th width="40">ID</th><th width="150">Action</th><th>Details</th><th width="200">Log Date/Time</th></tr>
+						</thead>
+						<tbody>
+							<tr><td colspan="6" align="center"><img src="/images/loading.gif" alt="Loading...please wait" title="Loading...please wait" /></td></tr>
+						</tbody>
+					</table>
+				</div>
+				<div class="tabContent" id="main">
+				<form id="editSettingsForm" autocomplete="off" action="/actions.html?action=updateSettings" method="post">
+					<div>
+						<label for="ping_interval">Default Ping Interval</label><input type="number" name="Default Ping Interval (sec)" id="ping_interval" value="<%= ((settings.settings !== undefined && settings['settings']['Default Ping Interval (sec)'].value !== undefined) && settings['settings']['Default Ping Interval (sec)'].value != '30' ? settings['settings']['Default Ping Interval (sec)'].value : '') %>" placeholder="Default: 30" min="5" max="86399" />
+					</div>
+					<div>
+						<label for="console_text_color">Console Text Color</label><input type="color" name="Console Text Color" id="console_text_color" value="<%= ((settings.settings !== undefined && settings['settings']['Console Text Color'].value !== undefined) ? settings['settings']['Console Text Color'].value : settings['settings']['Console Text Color'].default_value) %>" placeholder="Default: 30" min="5" max="86399" />
+					</div>
+					<div>
+						<label for="console_bg_color">Console BG Color</label><input type="color" name="Console BG Color" id="console_bg_color" value="<%= ((settings.settings !== undefined && settings['settings']['Console BG Color'].value !== undefined) ? settings['settings']['Console BG Color'].value : settings['settings']['Console BG Color'].default_value) %>" />
+					</div>
+					<div>
+						<label for="api_on_y">Enable /API Endpoint?</label>
+						<label for="api_on_y">Yes</label> <input type="radio" name="API" id="api_on_y" value="Y" <%= (((settings.settings !== undefined && settings.settings.API.value !== undefined && settings.settings.API.value != 'N') || settings.settings.API === undefined) ? ' CHECKED' : '') %> />
+						<label for="api_on_n">No</label> <input type="radio" name="API" id="api_on_n" value="N" <%= ((settings.settings !== undefined && settings.settings.API.value !== undefined && settings.settings.API.value == 'N') ? ' CHECKED' : '') %> />
+					</div>
+					<div class="right">
+						<input type="submit" value="Save Changes" title="Save Changes" />
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+<%- include('partials/footer'); %>

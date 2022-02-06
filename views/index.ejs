@@ -1,0 +1,307 @@
+<%- include('partials/header'); %>
+<script>
+  let settings;
+  let hosts;
+  let _APPLICATION;
+  $(function(){
+    const socket = io();
+    try{
+      socket.on('connect', function() {
+      }).on('initdata', function(data){
+        json = JSON.parse(data);
+        if(json.settings !== undefined){
+          $('.footer-right').empty();
+          _APPLICATION = json._APPLICATION;
+          $('.footer-left').html(`${_APPLICATION.name} v${_APPLICATION.version} ${_APPLICATION.copyright}`);
+          _APPLICATION['links'].forEach((link) => {
+            $('.footer-right').append(`<a href="${link.URL}" target="_blank">${link.name}</a>`);
+          });
+
+          settings = json.settings;
+        }
+        $('#content, ul.hostList').empty();
+        settings.categories.forEach((category) => {
+          heading = (category === null) ? '' : `<h2>${category}</h2>`;
+          $('#content').append(`<div class="hostGroup hostGroup${settings.categories.indexOf(category)}" data-group="${category}">${((category === null) ? '' : `<h2>${category}</h2>`)}</div>`);
+        });
+        hosts = json.hosts;
+        hosts.forEach((host) => {
+          if(host != null){
+            if(host.is_web){
+              $(`.hostGroup${settings.categories.indexOf(host.category)}`).append(`<div class="host" id="host_${host.id}" data-status=""><div class="hostBackground"><img src="images/icons/${settings.icons[host.icon_id]}.png"></div><div class="hostContent"><h3 title="${host.host}"><span>${host.host}</span></h3><span class="statusCode"></span><a href="${host.host}" target="_blank" title="Visit ${host.host}" class="extLink"><div class="hostIcon"><img src="images/icons/${settings.icons[host.icon_id]}.png" alt="${settings.icons[host.icon_id]}" title="${settings.icons[host.icon_id]}" /></div></a><div class="responseTime">Initializing @ ${new Date().toLocaleTimeString('en-us',df)}</div><div class="hostActions"><a href="${host.host}" target="_blank"><img src="images/web.png" alt="View Webpage" title="View Webpage" /></a> <a href="/ping.html?host=${host.id}" title="Ping - ${host.host}" class="dialogLink"><img src="images/ping.png" alt="Ping" title="Ping" /></a> <a href="${host.id}" title="Editing ${host.host}" class="editHost"><img src="images/edit.png" alt="Edit host" title="Edit host" /></a></div><div class="hostStatus hostNew"></div><textarea class="tags">${host.host},${host.tags}</textarea></div></div>`);
+              $('ul.hostList').append(`<li id="li_${host.id}" title="${host.host}"><div class="hostStatus hostNew"></div><a href="${host.host}" target="_blank" class="extLink">&#10697;</a><span><a href="#" class="setFilter" data-filter=":${host.id}">${host.host}</a></span></li>`)
+            } else {
+              $(`.hostGroup${settings.categories.indexOf(host.category)}`).append(`<div class="host" id="host_${host.id}" data-status=""><div class="hostBackground"><img src="images/icons/${settings.icons[host.icon_id]}.png"></div><div class="hostContent"><h3 title="${host.host}"><span>${host.host}</span></h3><span class="statusCode"></span><div class="hostIcon"><img src="images/icons/${settings.icons[host.icon_id]}.png" alt="${settings.icons[host.icon_id]}" title="${settings.icons[host.icon_id]}" /></div><div class="responseTime">Initializing @ ${new Date().toLocaleTimeString('en-us',df)}</div><div class="hostActions"><a href="${host.host}" target="_blank"><img src="images/web.png" alt="View Webpage" title="View Webpage" /></a> <a href="/ping.html?host=${host.id}" title="Ping - ${host.host}" class="dialogLink"><img src="images/ping.png" alt="Ping" title="Ping" /></a> <a href="${host.id}" title="Editing ${host.host}" class="editHost"><img src="images/edit.png" alt="Edit host" title="Edit host" /></a></div><div class="hostStatus hostNew"></div><textarea class="tags">${host.host},${host.tags}</textarea></div></div>`);
+              $('ul.hostList').append(`<li id="li_${host.id}" title="${host.host}"><div class="hostStatus hostNew"></div><span><a href="#" class="setFilter" data-filter=":${host.id}">${host.host}</a></span></li>`)
+            }
+            
+            if(host.last_status != null){
+              updateHostDisplay(host.last_status);
+            }
+          }
+        });
+        $('.hostList').each(function(){
+          $(this).html($(this).children('li').sort(function(a, b){
+            return ($(b).attr('title').toLowerCase()) < ($(a).attr('title').toLowerCase()) ? 1 : -1;
+          }));
+        });
+        $('.hostGroup').each(function(){
+          groupHeading = $(this).data('group');
+          $(this).html($(this).children('div').sort(function(a, b){
+            return ($(b).find('h3').attr('title').toLowerCase()) < ($(a).find('h3').attr('title').toLowerCase()) ? 1 : -1;
+          }));
+          $(this).prepend(((groupHeading != '') ? `<h2>${groupHeading}</h2>` : ''));
+        });
+        $('span.hostsCount').text($('div.host').length);
+      }).on('data', function(data){
+        hostObject = JSON.parse(data);
+        updateHostDisplay(hostObject);
+      }).on('log', function(log){
+        logs = JSON.parse(log);
+        logs.forEach((log) => {
+          if($(`#log_id_${log.i}`).length) return;
+          $('#logView table tbody').prepend(`<tr id="log_id_${log.i}" class="${log.s}"><td>${log.s}</td><td align="center">${log.i}</td><td>${((log.h == 0) ? '' : hosts[log.h].host)}</td><td>${log.a}</td><td class="noWrap">${log.d}</td><td align="center">${new Date((log.t * 1000)).toLocaleString()}</td></tr>`);
+          if(log.n != ''){
+            bubbleNotify(log.n);
+          }
+        });
+      }).on('bubbleNotify', function(data){
+        bubbleNotify(data);
+      }).on('error', function(e){
+        $('div.hostStatus').removeClass('hostNew hostUp hostDown').addClass('hostNew');
+      }).on('ping', function(e){
+      }).on('pong', function(e){
+      }).on('open', function(e){
+      }).on('disconnect', function(e){
+        $('div.hostStatus').removeClass('hostNew hostUp hostDown').addClass('hostNew');
+      }).on('close', function(e){
+        $('div.hostStatus').removeClass('hostNew hostUp hostDown').addClass('hostNew');
+      });
+    } catch(e){
+
+    }
+
+    $(document).on('click','.sendAction',function(){
+      socket.emit('data', $(this).data());
+      return false;
+    });
+
+    $(document).on('change','.logToggle',function(){
+      $('#layoutContainer').toggleClass('showLogs');
+    });
+
+    $(document).on('click','a.dialogLink',function(){
+      theLink = $(this);
+      showModal(theLink.attr('title'), `<iframe src="${theLink.attr('href')}"></iframe>`);
+      return false;
+    });
+
+      /**** animated edit ****/
+  $clone = $('#editAnimation');
+$hostElement = '';
+hostOffset = { top: 0, left: 0, width: 0, height: 0 };
+cloneflipped = false;
+
+$('#editAnimation').on('transitionend', function (e) {
+if (e.target === e.currentTarget) {
+    if (e.originalEvent.propertyName == 'top') {
+
+        //Toggle the clone state
+        cloneflipped = !cloneflipped;
+
+        //Detect if our clone has returned to the original position and then hide it
+        if (!cloneflipped) {
+            $($hostElement).css('opacity', 1);
+            $($clone).hide();
+            $('html').removeClass('noScroll');
+        } else {
+          $clone.find('.hostStatus').remove();
+          $('html').addClass('noScroll');
+        }
+    }
+}
+});
+
+
+$(document).on('click','a.editHost', function(){
+theLink = $(this);
+if (!cloneflipped) {
+    $hostElement = $(this).closest('div.host');
+    $('.animatedBack .dialog-title').text(theLink.attr('title'));
+    $('.animatedContent').html('<img src="images/loading.gif" alt="Loading...please wait" title="Loading...please wait" class="loadingImage" />');
+
+    var offset = $hostElement.offset();
+    hostOffset = { top: (offset.top - 12 - $(document).scrollTop()), left: (offset.left - 12), width: $hostElement.width(), height: $hostElement.height() };
+
+    var rotatefront = "rotateY(180deg)";
+    var rotateback = "rotateY(0deg)";
+    if((hostOffset.left + hostOffset.width / 2) > $(window).width() / 2){
+      rotatefront = "rotateY(-180deg)";
+      rotateback = "rotateY(-360deg)"; 
+    }
+    $clone.find('.animatedFront').html($hostElement.html());
+    $clone.css({ display: 'block', top: hostOffset.top, left: hostOffset.left });
+    $hostElement.css('opacity', 0);
+    $('.animatedContent').html(`<iframe src="${theLink.attr('href')}"></iframe>`);
+      
+    //Flip the host while centering it in the screen
+    //[hack: we have to wait for the clone to finish drawing before calling the transform so we put it in a 100 millisecond settimeout callback]
+    setTimeout(function () {
+      $clone.css({ top: '10%', left: '10%', height: '80%', width: '80%' });
+      //$clone.css({ top: '0', marginLeft: 'auto', marginRight: 'auto', right: '0', left: '0', height: '80%', width: '80%' });
+      $clone.find('.animatedFront').css({ transform: rotatefront });
+      $clone.find('.animatedBack').css({ transform: rotateback });
+    }, 100);
+}
+return false;
+});
+
+
+
+$(document).on('click', '.animatedBack * .dialog-close input', (e) => {
+  if(cloneflipped){
+    if(e.target === e.currentTarget){
+      $clone.css({ top: `${hostOffset.top}px`, left: `${hostOffset.left}px`, height: `${hostOffset.height}px`, width: `${hostOffset.width}px` });
+      $clone.find('.animatedFront').css({ transform: 'rotateY(0deg)' });
+      $clone.find('.animatedBack').css({ transform: 'rotateY(-180deg)' });
+    }
+  }
+  return false;
+  });
+});
+  
+  var df = { hour:'2-digit', minute:'2-digit', second:'2-digit' };
+  interval = 5000;
+
+  function httpResponse(code){
+    responseCodes = { 100: 'Continue', 101: 'Switching Protocols', 102: 'Processing', 200: 'OK', 201: 'Created', 202: 'Accepted', 203: 'Non-authoritative Information', 204: 'No Content', 205: 'Reset Content', 206: 'Partial Content', 207: 'Multi-Status', 208: 'Already Reported', 226: 'IM Used', 300: 'Multiple Choices', 301: 'Moved Permanently', 302: 'Found', 303: 'See Other', 304: 'Not Modified', 305: 'Use Proxy', 307: 'Temporary Redirect', 308: 'Permanent Redirect', 400: 'Bad Request', 401: 'Unauthorized', 402: 'Payment Required', 403: 'Forbidden', 404: 'Not Found', 405: 'Method Not Allowed', 406: 'Not Acceptable', 407: 'Proxy Authentication Required', 408: 'Request Timeout', 409: 'Conflict', 410: 'Gone', 411: 'Length Required', 412: 'Precondition Failed', 413: 'Payload Too Large', 414: 'Request-URI Too Long', 415: 'Unsupported Media Type', 416: 'Requested Range Not Satisfiable', 417: 'Expectation Failed', 418: 'I\'m a teapot', 421: 'Misdirected Request', 422: 'Unprocessable Entity', 423: 'Locked', 424: 'Failed Dependency', 426: 'Upgrade Required', 428: 'Precondition Required', 429: 'Too Many Requests', 431: 'Request Header Fields Too Large', 444: 'Connection Closed Without Response', 451: 'Unavailable For Legal Reasons', 499: 'Client Closed Request', 500: 'Internal Server Error', 501: 'Not Implemented', 502: 'Bad Gateway', 503: 'Service Unavailable', 504: 'Gateway Timeout', 505: 'HTTP Version Not Supported', 506: 'Variant Also Negotiates', 507: 'Insufficient Storage', 508: 'Loop Detected', 510: 'Not Extended', 511: 'Network Authentication Required', 599: 'Network Connect Timeout Error' };
+    return responseCodes[code] || '';
+  }
+
+  function updateHostDisplay(hostObject){
+    $(`#host_${hostObject.i}`).data('status', hostObject.s);
+    $(`#host_${hostObject.i} div.hostStatus, #li_${hostObject.i} .hostStatus`).removeClass('hostNew hostUp hostDown').addClass(`host${hostObject.s}`).attr('title', `${hostObject.s}: ${hostObject.r}`);
+    $(`#host_${hostObject.i} div.responseTime`).text(`${hostObject.r} @ ${new Date(hostObject.t*1000).toLocaleTimeString('en-us', df)}`);
+    if(hosts[hostObject.i].is_web){
+      $(`#host_${hostObject.i} span.statusCode`).attr('title', httpResponse(hostObject.c)).text(hostObject.c);
+      $(`#host_${hostObject.i} div.hostActions`).html(`<a href="${hosts[hostObject.i].host}" target="_blank"><img src="images/web.png" alt="View Webpage" title="View Webpage" /></a> <a href="/ping.html?host=${hostObject.i}" title="Ping - ${hosts[hostObject.i].host}" class="dialogLink"><img src="images/ping.png" alt="Ping" title="Ping" /></a> <a href="/editor.html?host=${hostObject.i}" title="Editing ${hosts[hostObject.i].host}" class="editHost"><img src="images/edit.png" alt="Edit host" title="Edit host" /></a>`);
+    } else if(hostObject.r == 'Unreachable'){
+      wol = (hosts[hostObject.i].is_wol) ? ` <a href="#" class="sendAction" data-action="wol" data-host="${hostObject.i}"><img src="images/wol.png" alt="WOL" title="WOL" /></a> ` : ' ';
+      $(`#host_${hostObject.i} div.hostActions`).html(`<img src="images/cmd.png" alt="Open terminal" title="Open terminal" /> <a href="/ping.html?host=${hostObject.i}" title="Ping - ${hosts[hostObject.i].host}" class="dialogLink"><img src="images/ping.png" alt="Ping" title="Ping" /></a>${wol}<a href="/editor.html?host=${hostObject.i}" title="Editing ${hosts[hostObject.i].host}" class="editHost"><img src="images/edit.png" alt="Edit host" title="Edit host" /></a>`);
+    } else {
+      wol = (hosts[hostObject.i].is_wol) ? ` <a href="#" class="sendAction" data-action="wol" data-host="${hostObject.i}"><img src="images/wol.png" alt="WOL" title="WOL" /></a> ` : ' ';
+      remote = (hosts[hostObject.i].ext !== undefined && hosts[hostObject.i].ext.guacamole_url !== undefined && hosts[hostObject.i].ext.guacamole_url !== '') ? ` <a href="${hosts[hostObject.i].ext.guacamole_url}" title="Apache Guacamole - ${hosts[hostObject.i].host}" class="dialogLink"><img src="images/remote.png" alt="Connect via Apache Guacamole" title="Connect via Apache Guacamole" /></a>` : '';
+      $(`#host_${hostObject.i} div.hostActions`).html(`<a href="/ssh.html?host=${hostObject.i}" title="Terminal - ${hosts[hostObject.i].host}" class="dialogLink"><img src="images/cmd.png" alt="Open terminal" title="Open terminal" /></a> <a href="/ping.html?host=${hostObject.i}" title="Ping - ${hosts[hostObject.i].host}" class="dialogLink"><img src="images/ping.png" alt="Ping" title="Ping" /></a>${wol}${remote} <a href="/editor.html?host=${hostObject.i}" title="Editing ${hosts[hostObject.i].host}" class="editHost"><img src="images/edit.png" alt="Edit host" title="Edit host" /></a>`);
+    }
+    $('span.upCount').text($('div.host div.hostUp').length.toString());
+    $('span.downCount').text($('div.host div.hostDown').length.toString());
+  }
+
+  $(document).on('input', 'input[name=filter]', function(){ 
+    $hostDivs = $('.host');
+    var filter = this.value;
+    clearTimeout($.data(this, 'timer'));
+    if(filter != '' || ($hostDivs.length != $('.host:visible').length && filter == '')){
+      var wait = setTimeout(function(){
+        if(filter == ':UP' || filter == ':DOWN'){
+          matches = $hostDivs.filter(function(){
+            return new RegExp(filter.replace(':',''), 'gi').test($(this).data('status'));
+          });
+          $hostDivs.show(250).not(matches).hide(350);
+        } else if(filter != '' && !isNaN(filter.replace(':',''))){
+          $hostDivs.show(250).not(`#host_${filter.replace(':','')}`).hide(350);	
+        } else {
+          matches = $hostDivs.filter(function(){
+            return new RegExp(filter, 'gi').test($(this).find('.tags').val());
+          });
+          $hostDivs.show(250).not(matches).hide(350);	
+        }
+      }, 400);
+      $(this).data('timer', wait);
+    } else {
+      $hostDivs.show(250);
+    }
+  });
+
+  $(document).on('click','a.setFilter',function(){
+    filter = $(this).data('filter');
+    input = $('input[name=filter]');
+    if(input.val() != filter){
+      input.val(filter).trigger('input');
+    }
+    return false;
+  });
+
+  $(document).on('click','a.ajaxLink',function(){
+    link = $(this);
+    $.ajax({ url: link.attr('href'), type: 'get', success: function(r){ showModal('WOL Result', r); }});
+    return false;
+  });
+
+  $(document).on('click','button.sideBarMenu',function(){
+    $(this).toggleClass('is-active');
+    $('.sideBar').toggleClass('collapsed');
+  });
+
+
+
+</script>
+</head>
+<body>
+<div id="layoutContainer">
+  <div id="headerBar">
+    <div class="header-left">
+      <div class="summaryHeader"><a href="#" class="setFilter" data-filter=""><span class="hostsCount">--</span> Hosts</a></div>
+      <div class="summaryHeader"><a href="#" class="setFilter" data-filter=":UP"><span class="upCount">--</span> Up</a></div>
+      <div class="summaryHeader"><a href="#" class="setFilter" data-filter=":DOWN"><span class="downCount">--</span> Down</a></div>
+      <input type="text" name="filter" placeholder="Filter Hosts" />
+    </div>
+    <div class="header-right">
+      <a href="refreshHosts" title="Refresh Hosts" class="sendAction" data-action="refreshHosts" data-hostsonly="true">&#8635;</a>&nbsp;
+      <a href="/editor.html" title="Add New Host" class="dialogLink">&#43;</a>&nbsp;
+      <a href="/settings.html" title="HostMon Settings" class="dialogLink">&#9881;</a>
+    </div>
+  </div>
+  <div id="contentContainer">
+    <div class="sideBar collapsed">
+      <div class="sideBarShowContainer">
+        <button class="hamburger hamburger--elastic sideBarMenu" type="button">
+          <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+          </span>
+        </button>
+      </div>
+      <ul class="hostList"></ul>
+    </div>
+    <div id="content"></div>
+    <div id="editAnimation">
+      <div class="animatedFront"></div>
+      <div class="animatedBack">
+        <div class="dialog-titlebar">
+          <span class="dialog-title"></span>
+          <span class="dialog-close"><input type="button" value="X" /></span>
+        </div>
+        <div class="animatedContent"></div>
+      </div>
+    </div>
+    <div class="bubbleNotifications"></div>
+  </div>
+  <div id="footer">
+    <div class="footer-left"></div>
+    <div id="logContainer">
+      <input id="showLogs" class="logToggle" type="checkbox">
+      <label for="showLogs" class="logToggleText">Logs</label>
+    </div>
+    <div class="footer-right"></div>
+    <div id="logView">
+      <table border="0" cellpadding="2" cellspacing="2" width="100%">
+        <thead>
+          <tr><th width="50">Status</th><th width="40">ID</th><th width="250">Host</th><th width="150">Action</th><th>Details</th><th width="165">Log Date/Time</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div class="fadedLogo"><img src="images/logo.png" alt="HostMon" title="HostMon" /></div>
+<%- include('partials/footer'); %>

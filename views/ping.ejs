@@ -1,0 +1,35 @@
+<%- include('partials/header'); %>
+  <script defer src="/xterm.js"></script>
+  <script defer src="/xterm-addon-fit.js"></script>
+  <link rel="stylesheet" href="/xterm.css" />
+  <style>
+    .xterm-cursor-layer { display: none; }
+  </style>
+  <div id="terminal-container"></div>
+  <script>
+    $(function(){
+      const terminal = new Terminal({
+        cursorBlink: false
+      });
+      const fitAddon = new FitAddon.FitAddon();
+      terminal.setOption('theme', { background: '<%= settings['Console BG Color'].value %>', foreground: '<%= settings['Console Text Color'].value %>' });
+      terminal.loadAddon(fitAddon);
+      terminal.open(document.getElementById('terminal-container'));
+      fitAddon.fit();
+
+      const socket = io();
+      terminal.onKey((ev) => {
+        socket.emit('data', ev.key);
+      });
+      socket.on('initdata', (data) => {
+        window.parent.$('.dialog-title').append(` [${data}]`);
+      }).on('pingresponse', (data) => {
+        terminal.write(data);
+      });
+      
+      $(window).on('resize', function(){
+        fitAddon.fit();
+      });
+    });
+  </script>
+<%- include('partials/footer'); %>

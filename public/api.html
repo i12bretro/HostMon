@@ -1,0 +1,11 @@
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  try{
+    socket.on('data', function(data){
+      console.log(data);
+    });
+  } catch(e){
+
+  }
+</script>
