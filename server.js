@@ -596,7 +596,7 @@ async function pingHost(id, host){
 
 async function writeLog(id, action, details, notification = '', status = 'SUCCESS'){
   timeStamp = Math.round(new Date().getTime() / 1000);
-  if(typeof(id) === 'number' && id > 0 && hosts[id].ext !== undefined && hosts[id].ext.logging !== undefined && hosts[id].ext.logging === 'N'){
+  if(typeof(id) === 'number' && id > 0 && hosts.indexOf(id) > -1 && hosts[id].ext !== undefined && hosts[id].ext.logging !== undefined && hosts[id].ext.logging === 'N'){
     io.emit('bubbleNotify', notification);
     return;
   }
