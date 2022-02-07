@@ -37,6 +37,8 @@ https://user-images.githubusercontent.com/54692756/152793104-31997735-f1e7-4a58-
 ```sh
 git clone https://github.com/i12bretro/HostMon.git ./hostmon
 cd hostmon
+npm install
+npm audit fix
 node ./server.js
 ```
 
@@ -48,6 +50,8 @@ node ./server.js
 5. Change directory to the extracted HostMon files
 6. Run
 ```powershell
+npm install
+npm audit fix
 node .\server.js
 ```
 
