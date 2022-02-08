@@ -29,7 +29,16 @@ https://user-images.githubusercontent.com/54692756/152793104-31997735-f1e7-4a58-
 
 ### Docker
 ```sh
- COMING SOON!!!
+# create working directories
+mkdir ~/docker/hostmon -p
+# create the hostmon docker container
+docker create -ti --name hostmon i12bretro/hostmon
+# export the hostmon database
+docker cp hostmon:/app/data/hostmon.db ~/docker/hostmon/hostmon.db
+# remove the temporary hostmon container
+docker rm hostmon -f
+# run hostmon with persistent database
+docker run -d --name hostmon -v ~/docker/hostmon:/app/data -p 3000:3000 --restart=unless-stopped i12bretro/hostmon
 ```
 
 
@@ -56,7 +65,7 @@ node .\server.js
 ```
 
 ## Coming Soon
-Currently working on creating a containerized version of HostMon to run in Docker
+
 
 ## Screenshots
 ### Main Dashboard
